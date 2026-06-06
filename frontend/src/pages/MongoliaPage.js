@@ -1,14 +1,61 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { destinations, categories } from '../data/destinations';
 import DestinationCard from '../components/DestinationCard';
 
 export default function MongoliaPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [dbDestinations, setDbDestinations] = useState([]);
+  const [dbError, setDbError] = useState('');
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/mongolia')
+      .then((res) => res.json())
+      .then((data) => {
+        setDbDestinations(data);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch Mongolia data:', err);
+        setDbError('Failed to load data from database.');
+      });
+  }, []);
 
   const mongoliaDestinations = destinations.filter(d => d.country === 'mongolia');
+  
+  const convertedDbDestinations = dbDestinations.map((dbItem, index) => {
+    const staticItem = mongoliaDestinations[index % mongoliaDestinations.length];
+
+    const category =
+      dbItem.theme === 'History'
+        ? 'historical'
+        : dbItem.theme === 'Lake' || dbItem.theme === 'Desert' || dbItem.theme === 'Hot Springs'
+          ? 'nature'
+          : dbItem.theme.toLowerCase();
+
+    return {
+      ...staticItem,
+      id: staticItem.id,
+      name: dbItem.name.split('(')[0].trim(),
+      title: dbItem.name.split('(')[0].trim(),
+
+      shortDescription: dbItem.description,
+      description: dbItem.description,
+
+      category: category,
+      country: 'mongolia',
+      region: dbItem.region,
+
+      estimated_cost_krw: dbItem.estimated_cost_krw,
+
+      budget: {
+        ...staticItem.budget,
+        level: `${dbItem.estimated_cost_krw.toLocaleString()} KRW`
+      }
+    };
+  });
+
   const filteredDestinations = selectedCategory === 'all'
-    ? mongoliaDestinations
-    : mongoliaDestinations.filter(d => d.category === selectedCategory);
+  ? convertedDbDestinations
+  : convertedDbDestinations.filter(d => d.category === selectedCategory);
 
   return (
     <div>

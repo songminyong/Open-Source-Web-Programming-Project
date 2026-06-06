@@ -162,12 +162,12 @@ export default function DestinationDetailPage() {
                           <div key={review.id} className="card review-item">
                             <div className="review-header">
                               <div className="avatar">
-                                {review.userName.charAt(0)}
+                                {(review.userName || 'A').charAt(0)}
                               </div>
                               <div className="flex-1" style={{ display: 'flex', flexDirection: 'column' }}>
                                 <div className="flex items-center justify-between flex-wrap" style={{ gap: '8px' }}>
                                   <div>
-                                    <p className="font-semibold">{review.userName}</p>
+                                    <p className="font-semibold">{review.userName || 'Anonymous'}</p>
                                     <p className="text-xs text-muted">
                                       {new Date(review.date).toLocaleDateString()}
                                     </p>
