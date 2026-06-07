@@ -1,14 +1,59 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { destinations, categories } from '../data/destinations';
 import DestinationCard from '../components/DestinationCard';
 
 export default function KoreaPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const koreaDestinations = destinations.filter(d => d.country === 'korea');
-  const filteredDestinations = selectedCategory === 'all'
-    ? koreaDestinations
-    : koreaDestinations.filter(d => d.category === selectedCategory);
+  const [dbDestinations, setDbDestinations] = useState([]);
+  const [dbError, setDbError] = useState('');
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/korea')
+      .then((res) => res.json())
+      .then((data) => {
+        setDbDestinations(data);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch Korea data:', err);
+        setDbError('Failed to load data from database.');
+      });
+  }, []);
+
+        const koreaStaticDestinations = destinations.filter(d => d.country === 'korea');
+
+        const convertedDbDestinations = dbDestinations.map((dbItem, index) => {
+          const staticItem = koreaStaticDestinations[index % koreaStaticDestinations.length];
+
+          return {
+            ...staticItem,
+            id: staticItem.id,
+            name: dbItem.name.split('(')[0].trim(),
+            title: dbItem.name.split('(')[0].trim(),
+
+            shortDescription: dbItem.description,
+            description: dbItem.description,
+
+            category:
+              dbItem.theme === 'History'
+                ? 'historical'
+                : dbItem.theme.toLowerCase(),
+
+            country: 'korea',
+            region: dbItem.region,
+
+            estimated_cost_krw: dbItem.estimated_cost_krw,
+
+            budget: {
+                ...staticItem.budget,
+                level: `${dbItem.estimated_cost_krw.toLocaleString()} KRW`
+           } 
+          };
+        });
+
+        const filteredDestinations = selectedCategory === 'all'
+          ? convertedDbDestinations
+          : convertedDbDestinations.filter(d => d.category === selectedCategory);
 
   return (
     <div>
