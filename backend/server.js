@@ -11,7 +11,7 @@ app.use(cors());
 const config = {
     host: 'localhost',
     user: 'root',
-    password: 'root',
+    password: '1234',
     database: 'travel_db'
 };
 
@@ -185,19 +185,81 @@ const ReviewSystem = {
 };
 
 // examples
-async function run() {
-    await initializeDestinationTable('korea_travel_destinations', koreaData);
-    await initializeReviewTable();
+// Create database if it does not exist
+async function initializeDatabase() {
+    const con = await mysql.createConnection({
+        host: 'localhost',
+        user: 'root',
+        password: '1234'
+    });
 
-    const spotName = 'Seoul (Gyeongbokgung)';
-
-    console.log('\n--- Adding Reviews by Name ---');
-    await ReviewSystem.addReview('korea_travel_destinations', spotName, 5, 'The night view was incredible!');
-    await ReviewSystem.addReview('korea_travel_destinations', spotName, 4, 'So much history in one place.');
-
-    console.log(`\n--- Reviews for "${spotName}" ---`);
-    const reviews = await ReviewSystem.getReviewsByDestination('korea_travel_destinations', spotName);
-    console.table(reviews);
+    await con.query(`CREATE DATABASE IF NOT EXISTS travel_db`);
+    console.log("Database travel_db is ready.");
+    await con.end();
 }
 
-//run();
+// Test API
+app.get("/", (req, res) => {
+    res.send("Backend server is running");
+});
+
+// Get Korea data
+app.get("/api/korea", async (req, res) => {
+    try {
+        const con = await mysql.createConnection(config);
+        const [rows] = await con.query("SELECT * FROM korea_travel_destinations");
+        await con.end();
+
+        res.json(rows);
+    } catch (err) {
+        console.error("Korea API error:", err.message);
+        res.status(500).json({ error: "Failed to get Korea data" });
+    }
+});
+
+// Get Mongolia data
+app.get("/api/mongolia", async (req, res) => {
+    try {
+        const con = await mysql.createConnection(config);
+        const [rows] = await con.query("SELECT * FROM mongolia_travel_destinations");
+        await con.end();
+
+        res.json(rows);
+    } catch (err) {
+        console.error("Mongolia API error:", err.message);
+        res.status(500).json({ error: "Failed to get Mongolia data" });
+    }
+});
+
+// Add review
+app.post("/api/reviews", async (req, res) => {
+    const { target_table, destination_name, rating, comment } = req.body;
+
+    try {
+        await ReviewSystem.addReview(target_table, destination_name, rating, comment);
+        res.json({ message: "Review saved successfully" });
+    } catch (err) {
+        console.error("Review API error:", err.message);
+        res.status(500).json({ error: "Failed to save review" });
+    }
+});
+
+const PORT = 5000;
+
+async function startServer() {
+    try {
+        await initializeDatabase();
+
+        await initializeDestinationTable("korea_travel_destinations", koreaData);
+        await initializeDestinationTable("mongolia_travel_destinations", mongoliaData);
+        await initializeReviewTable();
+
+        app.listen(PORT, () => {
+            console.log(`Backend server running on http://localhost:${PORT}`);
+        });
+    } catch (err) {
+        console.error("Server start failed:", err.message);
+    }
+}
+
+startServer();
