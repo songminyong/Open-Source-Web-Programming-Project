@@ -103,13 +103,122 @@ async function initializeReviewTable() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✔ Review table (Name-based) is ready.');
+        console.log('Review table (Name-based) is ready.');
     } catch (err) {
         console.error('Error initializing review table:', err);
     } finally {
         await con.end();
     }
 }
+
+async function initializeUserTable() {
+    const con = await mysql.createConnection(config);
+    try {
+        await con.query(`USE travel_db`);
+        await con.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('User table (Name-based) is ready.');
+    } catch (err) {
+        console.error('Error initializing user table:', err);
+    } finally {
+        await con.end();
+    }
+}
+
+async function createUser(username, email, password) {
+    const con = await mysql.createConnection({ ...config, database: 'travel_db' });
+    try {
+        const query = `
+            INSERT INTO users (username, email, password)
+            VALUES (?, ?, ?)
+        `;
+        await con.query(query, [username, email, password]);
+        console.log(`User created: ${username}`);
+    } catch (err) {
+        if(err.code === 'ER_DUP_ENTRY') {
+            console.warn(`Error: Username or email already exists`);
+        } else {
+            console.error('Error creating user:', err);
+        }
+    } finally {
+        await con.end();
+    }
+}
+
+async function initializeWishlistTables() {
+    const con = await mysql.createConnection(config);
+    try {
+        await con.query(`USE travel_db`);
+        await con.query(`
+            CREATE TABLE IF NOT EXISTS wishlists (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                target_table VARCHAR(100),
+                destination_name VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_user_wish (user_id, target_table, destination_name)
+            )
+        `);
+        console.log('Wishlist tables are ready.');
+    } catch (err) {
+        console.error('Error initializing wishlist tables:', err);
+    } finally {        
+        await con.end();
+    }
+}
+
+const wishlist = {
+    async addToWishlist(userId, tableName, destName) {
+        const con = await mysql.createConnection({ ...config, database: 'travel_db' });
+        try {
+            const query = `
+                INSERT INTO wishlists (user_id, target_table, destination_name)
+                VALUES (?, ?, ?)
+            `;
+            await con.query(query, [userId, tableName, destName]);
+            console.log(`Added to wishlist: User ${userId}, ${destName} in ${tableName}`);
+        } catch (err) {
+            if(err.code === 'ER_DUP_ENTRY') {
+                console.warn(`Error: Wishlist entry already exists`);
+            } else {
+                console.error('Error adding to wishlist:', err);
+            }
+        } finally {
+            await con.end();
+        }
+    },
+    async getUserWishlist(userId) {
+        const con = await mysql.createConnection({ ...config, database: 'travel_db' });
+        try {
+            const query = `SELECT target_table, destination_name, created_at FROM wishlists WHERE user_id = ?`;
+            const [rows] = await con.query(query, [userId]);
+            return rows;
+        } finally {
+            await con.end();
+        }
+    },
+     
+    async removeFromWishlist(userId, tableName, destName) {
+        const con = await mysql.createConnection({ ...config, database: 'travel_db' });
+        try {
+            const query = `DELETE FROM wishlists WHERE user_id = ? AND target_table = ? AND destination_name = ?`;
+            await con.query(query, [userId, tableName, destName]);
+            console.log(`Removed from wishlist: User ${userId}, ${destName} in ${tableName}`);
+        } catch (err) {
+            console.error('Error removing from wishlist:', err);
+        } finally {
+            await con.end();
+        }
+    } 
+};
 
 const UniversalSearch = {
     async getByTheme(tableName, theme) {
@@ -253,10 +362,22 @@ async function startServer() {
         await initializeDestinationTable("korea_travel_destinations", koreaData);
         await initializeDestinationTable("mongolia_travel_destinations", mongoliaData);
         await initializeReviewTable();
+        await initializeUserTable();
+        await initializeWishlistTables();
 
         app.listen(PORT, () => {
             console.log(`Backend server running on http://localhost:${PORT}`);
         });
+
+        /* User & Wishlist system example
+        await createUser('testuser', 'testuser@example.com', 'password123');
+        await wishlist.addToWishlist(1, 'korea_travel_destinations', 'Seoul (Gyeongbokgung)');
+        await wishlist.addToWishlist(1, 'mongolia_travel_destinations', 'Ulaanbaatar');
+        await wishlist.addToWishlist(1, 'mongolia_travel_destinations', 'Terelj National Park');
+        await wishlist.removeFromWishlist(1, 'mongolia_travel_destinations', 'Ulaanbaatar');
+        const wishlistExample = await wishlist.getUserWishlist(1);
+        console.table(wishlistExample);
+        */
     } catch (err) {
         console.error("Server start failed:", err.message);
     }
