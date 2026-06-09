@@ -125,8 +125,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .italic       { font-style:italic; }
 .leading-relaxed { line-height:1.75; }
 .opacity-80   { opacity:.8; }
-.line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-
+.line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-clamp:2; }
 .flex        { display:flex; }
 .flex-col    { flex-direction:column; }
 .flex-wrap   { display:flex; flex-wrap:wrap; }
