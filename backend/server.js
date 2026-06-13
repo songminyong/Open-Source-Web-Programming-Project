@@ -40,7 +40,7 @@ const mongoliaData = [
 ];
 
 const koreaData = [
-    ['Seoul (Gyeongbokgung)', 'Seoul', 'History', 50000, 'The main royal palace of the Joseon Dynasty.'],
+    ['Seoul (Gyeongbokgung)', 'Seoul', 'History', 200000, 'The main royal palace of the Joseon Dynasty.'],
     ['Busan (Haeundae)', 'Gyeongsang', 'Nature', 150000, 'South Koreas most famous beach and urban scenery.'],
     ['Jeju (Seongsan Ilchulbong)', 'Jeju', 'Nature', 250000, 'A volcanic tuff cone with breathtaking sunrise views.'],
     ['Gyeongju (Bulguksa)', 'Gyeongsang', 'History', 80000, 'A masterpiece of Buddhist art from the Silla Kingdom.'],
@@ -96,6 +96,7 @@ async function initializeReviewTable() {
         await con.query(`
             CREATE TABLE IF NOT EXISTS travel_reviews (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(100),
                 target_table VARCHAR(100),
                 destination_name VARCHAR(100), 
                 rating INT CHECK (rating >= 1 AND rating <= 5),
@@ -226,10 +227,6 @@ const UniversalSearch = {
             ...config, 
             database: 'travel_db'
         });
-        const conn = await mysql.createConnection({
-            ...config, 
-            database: 'travel_db'
-        });
         const [rows] = await con.query(`SELECT * FROM ${tableName} WHERE theme = ?`, [theme]);
         await con.end();
         return rows;
@@ -257,7 +254,7 @@ const UniversalSearch = {
 };
 
 const ReviewSystem = {
-    async addReview(tableName, destName, rating, comment) {
+    async addReview(username, tableName, destName, rating, comment) {
         if(rating < 1 || rating > 5) {
             console.error('Rating must be between 1 and 5.');
             return;
@@ -265,11 +262,11 @@ const ReviewSystem = {
         const con = await mysql.createConnection({ ...config, database: 'travel_db' });
         try {
             const query = `
-                INSERT INTO travel_reviews (target_table, destination_name, rating, comment)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO travel_reviews (username, target_table, destination_name, rating, comment)
+                VALUES (?, ?, ?, ?, ?)
             `;
-            await con.query(query, [tableName, destName, rating, comment]);
-            console.log(`Review added for "${destName}" in ${tableName}`);
+            await con.query(query, [username, tableName, destName, rating, comment]);
+            console.log(`Review added by "${username}" for "${destName}" in ${tableName}`);
         } catch (err) {
             console.error('Error adding review:', err);
         } finally {
@@ -290,10 +287,22 @@ const ReviewSystem = {
         } finally {
             await con.end();
         }
+    },
+
+    async removeReview(reviewId) {
+        const con = await mysql.createConnection({ ...config, database: 'travel_db' });
+        try {
+            const query = `DELETE FROM travel_reviews WHERE id = ?`;
+            await con.query(query, [reviewId]);
+            console.log(`Review with ID ${reviewId} removed.`);
+        } catch (err) {
+            console.error('Error removing review:', err);
+        } finally {
+            await con.end();
+        }
     }
 };
 
-// examples
 // Create database if it does not exist
 async function initializeDatabase() {
     const con = await mysql.createConnection({
@@ -340,15 +349,48 @@ app.get("/api/mongolia", async (req, res) => {
     }
 });
 
-// Add review
-app.post("/api/reviews", async (req, res) => {
-    const { target_table, destination_name, rating, comment } = req.body;
-
+// Get all reviews
+app.get("/api/reviews", async (req, res) => {
     try {
-        await ReviewSystem.addReview(target_table, destination_name, rating, comment);
-        res.json({ message: "Review saved successfully" });
+        const con = await mysql.createConnection(config);
+        const [rows] = await con.query("SELECT * FROM travel_reviews ORDER BY created_at DESC");
+        await con.end();
+
+        const mappedRows = rows.map(row => ({
+            ...row,
+            user_name: row.username, 
+            destName: row.destination_name
+        }));
+
+        res.json(mappedRows);
     } catch (err) {
-        console.error("Review API error:", err.message);
+        console.error("Review GET API error:", err.message);
+        res.status(500).json({ error: "Failed to fetch reviews" });
+    }
+});
+
+app.post("/api/reviews", async (req, res) => {
+    try {
+        const { user_name, tableName, destName, rating, comment } = req.body;
+
+        if (!user_name || !tableName || !destName || !rating || !comment) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        const con = await mysql.createConnection(config);
+        const query = `
+            INSERT INTO travel_reviews (username, target_table, destination_name, rating, comment)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        const [result] = await con.query(query, [user_name, tableName, destName, rating, comment]);
+        await con.end();
+
+        res.status(201).json({
+            id: result.insertId,
+            message: "Review saved successfully"
+        });
+    } catch (err) {
+        console.error("Review POST API error:", err.message);
         res.status(500).json({ error: "Failed to save review" });
     }
 });
@@ -369,15 +411,10 @@ async function startServer() {
             console.log(`Backend server running on http://localhost:${PORT}`);
         });
 
-        /* User & Wishlist system example
-        await createUser('testuser', 'testuser@example.com', 'password123');
-        await wishlist.addToWishlist(1, 'korea_travel_destinations', 'Seoul (Gyeongbokgung)');
-        await wishlist.addToWishlist(1, 'mongolia_travel_destinations', 'Ulaanbaatar');
-        await wishlist.addToWishlist(1, 'mongolia_travel_destinations', 'Terelj National Park');
-        await wishlist.removeFromWishlist(1, 'mongolia_travel_destinations', 'Ulaanbaatar');
-        const wishlistExample = await wishlist.getUserWishlist(1);
-        console.table(wishlistExample);
-        */
+        // sample data for testing review system
+        await ReviewSystem.removeReview(1);
+
+        await ReviewSystem.addReview('John Doe', 'korea_travel_destinations', 'Seoul (Gyeongbokgung)', 4, 'Amazing historical site with beautiful architecture!');
     } catch (err) {
         console.error("Server start failed:", err.message);
     }

@@ -1,26 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ThumbsUp, MessageCircle, Calendar, User, MapPin, TrendingUp, X } from 'lucide-react';
-import { sampleReviews, sampleJournals } from '../data/reviews';
+import { sampleJournals } from '../data/reviews';
 import { destinations } from '../data/destinations';
 
 export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState('reviews');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [reviewsList, setReviewsList] = useState(sampleReviews);
+  const [reviewsList, setReviewsList] = useState([]);
+  const [dbError, setDbError] = useState('');
+
   const [showReviewForm, setShowReviewForm] = useState(false);
-  
   const [formName, setFormName] = useState('');
   const [formDest, setFormDest] = useState('seoul');
   const [formRating, setFormRating] = useState(5);
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
 
-  const filteredReviews = selectedFilter === 'all'
+  useEffect(() => {
+    fetch('http://localhost:5000/api/reviews')
+      .then((res) => res.json())
+      .then((data) => {
+        const mappedReviews = data.map((item, index) => ({
+          id: item.id || `db-${index}`,
+          user: item.username || 'Anonymous Traveler',
+          avatar: (item.username || 'A').charAt(0).toUpperCase(),
+          destination: item.destination_name,
+          rating: item.rating,
+          title: `${item.destination_name} Travel Review`,
+          content: item.comment,
+          date: item.created_at || new Date().toISOString(),
+          helpful: item.helpful || 0,
+          tripType: item.tripType || 'solo'
+        }));
+
+        setReviewsList(mappedReviews);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch reviews:', err);
+        setDbError('Failed to load data from database.');
+      });
+  }, []);
+
+  const filteredReviews = (selectedFilter === 'all'
     ? reviewsList
     : selectedFilter === 'solo'
     ? reviewsList.filter(r => r.tripType === 'solo')
-    : reviewsList.filter(r => r.content.toLowerCase().includes('budget') || r.title.toLowerCase().includes('budget'));
+    : reviewsList.filter(r => r.content?.toLowerCase().includes('budget') || r.title?.toLowerCase().includes('budget'))
+  ).slice(0, 10);
 
   const handleHelpfulClick = (id) => {
     setReviewsList(prev => prev.map(r => r.id === id ? { ...r, helpful: r.helpful + 1 } : r));
@@ -31,27 +58,49 @@ export default function CommunityPage() {
     if (!formTitle || !formContent) return;
 
     const matchedDest = destinations.find(d => d.id === formDest);
-    const newRev = {
-      id: reviewsList.length + 1,
-      user: formName || 'Anonymous Traveler',
-      avatar: (formName || 'A').charAt(0).toUpperCase(),
-      destination: matchedDest ? matchedDest.name : 'Seoul',
-      destinationId: formDest,
+    const destName = matchedDest ? matchedDest.name : 'Seoul (Gyeongbokgung)';
+    const tableName = matchedDest?.tableName || 'korea_travel_destinations';
+
+    const newReviewData = {
+      tableName: tableName,
+      destName: destName,
       rating: formRating,
-      title: formTitle,
-      content: formContent,
-      date: new Date().toISOString().split('T')[0],
-      helpful: 0,
-      verified: false,
-      tripType: 'solo'
+      comment: formContent,
+      user_name: formName || 'Anonymous Traveler',
+      title: formTitle
     };
 
-    setReviewsList([newRev, ...reviewsList]);
-    setShowReviewForm(false);
-    setFormName('');
-    setFormTitle('');
-    setFormContent('');
-    setFormRating(5);
+    fetch('http://localhost:5000/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReviewData)
+    })
+      .then((res) => res.json())
+      .then((savedData) => {
+        const newUIReview = {
+          id: savedData.id || Date.now(),
+          user: newReviewData.username,
+          avatar: newReviewData.username.charAt(0).toUpperCase(),
+          destination: newReviewData.destName,
+          rating: newReviewData.rating,
+          title: newReviewData.title,
+          content: newReviewData.comment,
+          date: new Date().toISOString().split('T')[0],
+          helpful: 0,
+          tripType: 'solo'
+        };
+
+        setReviewsList([newUIReview, ...reviewsList]);
+        setShowReviewForm(false);
+        setFormName('');
+        setFormTitle('');
+        setFormContent('');
+        setFormRating(5);
+      })
+      .catch((err) => {
+        console.error('Failed to submit review:', err);
+        alert('Failed to submit review');
+      });
   };
 
   return (
@@ -76,6 +125,8 @@ export default function CommunityPage() {
 
       <section className="py-16">
         <div className="container">
+          {dbError && <div className="alert alert-danger mb-4 text-red-500">{dbError}</div>}
+
           <div className="tabs-bar mb-8">
             <button
               type="button"
@@ -121,37 +172,44 @@ export default function CommunityPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {filteredReviews.map((review) => {
-                  const destInfo = destinations.find(d => d.id === review.destinationId);
+                  const destInfo = destinations.find(d => d.name === review.destination || d.id === review.destinationId);
                   return (
                     <div className="card review-item" key={review.id}>
                       <div className="review-header">
                         <div className="avatar">
-                          {review.avatar || (review.user ? review.user.charAt(0) : 'A')}
+                          {review.avatar}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between flex-wrap mb-2" style={{ gap: '8px' }}>
                             <div>
-                              <p className="font-semibold">{review.user || review.userName}</p>
+                              <p className="font-semibold">{review.user}</p>
                               <div className="flex items-center gap-2 text-xs text-muted mt-1" style={{ display: 'inline-flex', alignItems: 'center' }}>
                                 <Calendar style={{ width: '12px', height: '12px' }} />
                                 {new Date(review.date).toLocaleDateString()}
                               </div>
                             </div>
                             <div className="review-stars">
-                              {Array.from({ length: review.rating }).map((_, i) => (
+                              {Array.from({ length: review.rating || 5 }).map((_, i) => (
                                 <Star key={i} style={{ width: '14px', height: '14px', fill: '#FF9800', stroke: '#FF9800', marginRight: '1px' }} />
                               ))}
                             </div>
                           </div>
 
-                          {destInfo && (
-                            <Link to={`/destinations/${destInfo.id}`} style={{ display: 'inline-block', marginBottom: '12px' }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            {destInfo ? (
+                              <Link to={`/destinations/${destInfo.id}`}>
+                                <span className="badge badge-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <MapPin style={{ width: '12px', height: '12px' }} />
+                                  {review.destination}
+                                </span>
+                              </Link>
+                            ) : (
                               <span className="badge badge-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                 <MapPin style={{ width: '12px', height: '12px' }} />
-                                {destInfo.name}
+                                {review.destination}
                               </span>
-                            </Link>
-                          )}
+                            )}
+                          </div>
 
                           <h4 className="mb-2">{review.title}</h4>
                           <p className="text-muted text-sm mb-4 leading-relaxed">{review.content}</p>
@@ -166,7 +224,7 @@ export default function CommunityPage() {
                               <ThumbsUp style={{ width: '14px', height: '14px' }} />
                               Helpful ({review.helpful})
                             </button>
-                            <span className="badge badge-secondary">{review.tripType || 'solo'}</span>
+                            <span className="badge badge-secondary">{review.tripType}</span>
                           </div>
                         </div>
                       </div>
@@ -290,33 +348,19 @@ export default function CommunityPage() {
         </div>
       </section>
 
-      {/* Review Submission Modal overlay */}
       {showReviewForm && (
         <div
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px'
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
           }}
         >
           <div
             className="card"
             style={{
-              width: '100%',
-              maxWidth: '500px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              backgroundColor: 'var(--bg-card)',
-              position: 'relative',
-              animation: 'fadeUp 0.3s ease-out'
+              width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
+              backgroundColor: 'var(--bg-card)', position: 'relative', animation: 'fadeUp 0.3s ease-out'
             }}
           >
             <div className="card-header flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px' }}>
