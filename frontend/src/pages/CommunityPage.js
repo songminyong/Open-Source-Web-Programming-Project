@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { Star, ThumbsUp, MessageCircle, Calendar, User, MapPin, TrendingUp, X } from 'lucide-react';
 import { sampleJournals } from '../data/reviews';
 import { destinations } from '../data/destinations';
+import { useAuth } from '../context/AuthContext';
 
 export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState('reviews');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [reviewsList, setReviewsList] = useState([]);
   const [dbError, setDbError] = useState('');
+  const { user, isAuthenticated } = useAuth();
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [formName, setFormName] = useState('');
@@ -46,6 +48,8 @@ export default function CommunityPage() {
     ? reviewsList
     : selectedFilter === 'solo'
     ? reviewsList.filter(r => r.tripType === 'solo')
+    : selectedFilter === 'mine'
+    ? reviewsList.filter(r => r.user === user?.username)
     : reviewsList.filter(r => r.content?.toLowerCase().includes('budget') || r.title?.toLowerCase().includes('budget'))
   ).slice(0, 10);
 
@@ -66,7 +70,7 @@ export default function CommunityPage() {
       destName: destName,
       rating: formRating,
       comment: formContent,
-      user_name: formName || 'Anonymous Traveler',
+      user_name: isAuthenticated ? user.username : (formName || 'Anonymous Traveler'),
       title: formTitle
     };
 
@@ -79,8 +83,8 @@ export default function CommunityPage() {
       .then((savedData) => {
         const newUIReview = {
           id: savedData.id || Date.now(),
-          user: newReviewData.username,
-          avatar: newReviewData.username.charAt(0).toUpperCase(),
+          user: newReviewData.user_name,
+          avatar: newReviewData.user_name.charAt(0).toUpperCase(),
           destination: newReviewData.destName,
           rating: newReviewData.rating,
           title: newReviewData.title,
@@ -167,6 +171,15 @@ export default function CommunityPage() {
               >
                 Budget Travel
               </button>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  className={`btn btn-outline ${selectedFilter === 'mine' ? 'active' : ''}`}
+                  onClick={() => setSelectedFilter('mine')}
+                >
+                  My Reviews
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -375,17 +388,30 @@ export default function CommunityPage() {
             </div>
             
             <form onSubmit={handleCreateReview} className="card-body" style={{ padding: '24px' }}>
-              <div className="form-group">
-                <label className="form-label">Your Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Emma R."
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  required
-                />
-              </div>
+              {!isAuthenticated ? (
+                <div className="form-group">
+                  <label className="form-label">Your Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Emma R."
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Posting as</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={user.username}
+                    disabled
+                    style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Destination</label>

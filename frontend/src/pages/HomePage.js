@@ -79,7 +79,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          <div className="card-grid mb-12">
             {featuredDestinations.map((destination) => (
               <DestinationCard key={destination.id} destination={destination} />
             ))}

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Globe, Moon, Sun, Heart } from 'lucide-react';
+import { Globe, Moon, Sun, Heart, User, LogOut, LogIn } from 'lucide-react';
 import { getWishlist } from '../utils/wishlist';
+import { useAuth } from '../context/AuthContext';
 
 export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const { user, logout, isAuthenticated } = useAuth();
   const location = useLocation();
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
@@ -38,6 +41,7 @@ export default function Layout() {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
   }, [location]);
 
   const navLinks = [
@@ -80,9 +84,87 @@ export default function Layout() {
                 )}
               </Link>
             ))}
+
+            {/* Mobile Auth Links */}
+            <div className="mobile-auth-section">
+              {isAuthenticated ? (
+                <>
+                  <div style={{ padding: '6px 14px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Logged in as <strong>{user.username}</strong>
+                  </div>
+                  <Link to="/profile" className="nav-link">
+                    <User style={{ width: '15px', height: '15px' }} />
+                    My Profile
+                  </Link>
+                  <button
+                    type="button"
+                    className="nav-link"
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    style={{ color: '#d32f2f', border: 'none', background: 'none', textAlign: 'left', width: '100%', cursor: 'pointer' }}
+                  >
+                    <LogOut style={{ width: '15px', height: '15px' }} />
+                    Log Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="nav-link">
+                    <LogIn style={{ width: '15px', height: '15px' }} />
+                    Login
+                  </Link>
+                  <Link to="/register" className="nav-link" style={{ color: 'var(--primary)' }}>
+                    <User style={{ width: '15px', height: '15px' }} />
+                    Register
+                  </Link>
+                </>
+              )}
+            </div>
           </nav>
 
           <div className="header-actions">
+            <div className="desktop-auth">
+              {isAuthenticated ? (
+                <div className="profile-container">
+                  <button
+                    type="button"
+                    className="profile-trigger"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  >
+                    <User style={{ width: '16px', height: '16px' }} />
+                    <span>{user.username}</span>
+                  </button>
+                  {profileDropdownOpen && (
+                    <div className="profile-dropdown">
+                      <Link to="/profile" className="profile-dropdown-item">
+                        <User style={{ width: '14px', height: '14px' }} />
+                        My Profile
+                      </Link>
+                      <button
+                        type="button"
+                        className="profile-dropdown-item logout-btn"
+                        onClick={logout}
+                      >
+                        <LogOut style={{ width: '14px', height: '14px' }} />
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Link to="/login" className="btn btn-ghost btn-sm" style={{ padding: '6px 12px' }}>
+                    Login
+                  </Link>
+                  <Link to="/register" className="btn btn-primary btn-sm" style={{ padding: '6px 12px' }}>
+                    Register
+                  </Link>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
               className="theme-btn"

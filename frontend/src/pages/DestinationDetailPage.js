@@ -359,7 +359,7 @@ export default function DestinationDetailPage() {
           {relatedDestinations.length > 0 && (
             <div className="mt-16 border-t pt-16">
               <h2 className="mb-8">You Might Also Like</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="card-grid">
                 {relatedDestinations.map((dest) => (
                   <Link key={dest.id} to={`/destinations/${dest.id}`} style={{ textDecoration: 'none' }}>
                     <div className="card card-hover" style={{ overflow: 'hidden' }}>

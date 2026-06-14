@@ -52,6 +52,7 @@ export default function BudgetPlannerPage() {
   };
 
   const budget = calculateBudget();
+  const totalCostAvg = (budget.min + budget.max) / 2;
 
   return (
     <div>
@@ -75,14 +76,22 @@ export default function BudgetPlannerPage() {
 
       <section className="py-16">
         <div className="container">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div
+            style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr",
+            gap: "32px",
+            alignItems: "start"
+            }}
+        >
+            {/* Input Section (Left, 2 columns on desktop) */}
             <div className="lg:col-span-2 space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div className="card" style={{ padding: '24px' }}>
                 <h3 className="mb-6">Trip Configuration</h3>
                 
                 <div className="space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div className="slider-wrap">
-                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <label className="form-label" style={{ display: 'flex', justifycontent: 'space-between', justifyContent: 'space-between' }}>
                       <span>Trip Duration</span>
                       <span className="text-green font-bold">{tripDays} days</span>
                     </label>
@@ -120,13 +129,14 @@ export default function BudgetPlannerPage() {
                   <div>
                     <label className="form-label mb-3 block">Select Destinations</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {destinations.slice(0, 12).map((dest) => {
+                      {destinations.map((dest) => {
                         const isChecked = selectedDestinations.includes(dest.id);
                         return (
                           <div
                             key={dest.id}
                             className={`checkbox-card ${isChecked ? 'checked' : ''}`}
                             onClick={() => toggleDestination(dest.id)}
+                            style={{ cursor: 'pointer' }}
                           >
                             <input
                               type="checkbox"
@@ -140,7 +150,7 @@ export default function BudgetPlannerPage() {
                                 {dest.country}
                               </p>
                             </div>
-                            <MapPin className={`shrink-0`} style={{ width: '16px', height: '16px', color: isChecked ? 'var(--primary)' : 'var(--text-muted)' }} />
+                            <MapPin className="shrink-0" style={{ width: '16px', height: '16px', color: isChecked ? 'var(--primary)' : 'var(--text-muted)' }} />
                           </div>
                         );
                       })}
@@ -148,102 +158,127 @@ export default function BudgetPlannerPage() {
                   </div>
                 </div>
               </div>
+            </div>
 
+            {/* Results Sidebar (Right, 1 column on desktop) */}
+                <div
+                  className="space-y-6"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '24px',
+                    position: 'sticky',
+                    top: '100px',
+                    alignSelf: 'start'
+                  }}
+>              <div className="card" style={{ background: 'linear-gradient(135deg, rgba(46,125,50,0.08), rgba(2,136,209,0.08))', padding: '32px', textAlign: 'center' }}>
+                <Calculator className="text-green mx-auto mb-3" style={{ width: '40px', height: '40px' }} />
+                <p className="text-sm text-muted mb-2 font-semibold">Estimated Total Cost</p>
+                <h2 className="mb-2" style={{ color: 'var(--text)', fontSize: '2.2rem', fontWeight: '800', transition: 'all 0.3s ease' }}>
+                  {selectedDestinations.length > 0 ? (
+                    `$${budget.min.toLocaleString()} - $${budget.max.toLocaleString()}`
+                  ) : (
+                    '$0'
+                  )}
+                </h2>
+                <p className="text-xs text-muted mb-4">
+                  For {tripDays} days, {selectedDestinations.length} destinations
+                </p>
+                {selectedDestinations.length > 0 ? (
+                  <span className="badge badge-secondary capitalize">
+                    {budgetLevel} Style
+                  </span>
+                ) : (
+                  <span className="badge badge-outline" style={{ color: 'var(--text-muted)' }}>
+                    Select destinations to estimate
+                  </span>
+                )}
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="card" style={{ padding: '24px' }}>
+                <h3 className="mb-6">Cost Breakdown</h3>
+                <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {[
+                    { icon: Plane, label: 'Flights', amount: budget.breakdown.flights, color: 'text-blue', barColor: 'var(--secondary)' },
+                    { icon: Hotel, label: 'Accommodation', amount: budget.breakdown.accommodation, color: 'text-green', barColor: 'var(--primary)' },
+                    { icon: Utensils, label: 'Food & Drinks', amount: budget.breakdown.food, color: 'text-orange', barColor: 'var(--accent)' },
+                    { icon: Car, label: 'Transportation', amount: budget.breakdown.transportation, color: 'text-blue', barColor: 'var(--secondary)' },
+                    { icon: TrendingUp, label: 'Activities & Tours', amount: budget.breakdown.activities, color: 'text-green', barColor: 'var(--primary)' }
+                  ].map(({ icon: Icon, label, amount, color, barColor }) => {
+                    const percentage = totalCostAvg > 0 ? (amount / totalCostAvg) * 100 : 0;
+                    return (
+                      <div key={label} className="breakdown-item" style={{ paddingBottom: '12px' }}>
+                        <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
+                          <div className="flex items-center gap-3">
+                            <Icon className={color} style={{ width: '18px', height: '18px' }} />
+                            <span className="text-sm">{label}</span>
+                          </div>
+                          <span className="font-semibold" style={{ fontSize: '1.05rem' }}>${amount.toLocaleString()}</span>
+                        </div>
+                        <div style={{ width: '100%', backgroundColor: 'var(--border)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${percentage}%`,
+                            backgroundColor: barColor,
+                            height: '100%',
+                            borderRadius: '3px',
+                            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selected Destinations List */}
               {selectedDests.length > 0 && (
                 <div className="card" style={{ padding: '24px' }}>
-                  <h3 className="mb-6">Cost Breakdown</h3>
-                  <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {[
-                      { icon: Plane, label: 'Flights', amount: budget.breakdown.flights, color: 'text-blue' },
-                      { icon: Hotel, label: 'Accommodation', amount: budget.breakdown.accommodation, color: 'text-green' },
-                      { icon: Utensils, label: 'Food & Drinks', amount: budget.breakdown.food, color: 'text-orange' },
-                      { icon: Car, label: 'Transportation', amount: budget.breakdown.transportation, color: 'text-blue' },
-                      { icon: TrendingUp, label: 'Activities & Tours', amount: budget.breakdown.activities, color: 'text-green' }
-                    ].map(({ icon: Icon, label, amount, color }) => (
-                      <div key={label} className="flex items-center justify-between breakdown-item">
-                        <div className="flex items-center gap-3">
-                          <Icon className={color} style={{ width: '18px', height: '18px' }} />
-                          <span className="text-sm">{label}</span>
+                  <h4 className="mb-4">Selected Destinations</h4>
+                  <div className="space-y-3" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {selectedDests.map((dest) => (
+                      <div key={dest.id} className="flex items-center justify-between text-sm" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                        <div>
+                          <p className="font-semibold" style={{ margin: 0 }}>{dest.name}</p>
+                          <p className="text-xs text-muted" style={{ margin: 0 }}>
+                            ${dest.budget.dailyCost.min}-${dest.budget.dailyCost.max}/day
+                          </p>
                         </div>
-                        <span className="font-semibold" style={{ fontSize: '1.05rem' }}>${amount.toLocaleString()}</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => toggleDestination(dest.id)}
+                          style={{ color: '#d32f2f', padding: '4px 8px' }}
+                        >
+                          Remove
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
 
-            <div className="space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {selectedDests.length > 0 ? (
-                <>
-                  <div className="card" style={{ background: 'linear-gradient(135deg, rgba(46,125,50,0.08), rgba(2,136,209,0.08))', padding: '32px', textAlign: 'center' }}>
-                    <Calculator className="text-green mx-auto mb-3" style={{ width: '40px', height: '40px' }} />
-                    <p className="text-sm text-muted mb-2 font-semibold">Estimated Total Cost</p>
-                    <h2 className="mb-2" style={{ color: 'var(--text)', fontSize: '2.2rem', fontWeight: '800' }}>
-                      ${budget.min.toLocaleString()} - ${budget.max.toLocaleString()}
-                    </h2>
-                    <p className="text-xs text-muted mb-4">
-                      For {tripDays} days, {selectedDests.length} destinations
-                    </p>
-                    <span className="badge badge-secondary capitalize">
-                      {budgetLevel} Style
-                    </span>
-                  </div>
-
-                  <div className="card" style={{ padding: '24px' }}>
-                    <h4 className="mb-4">Selected Destinations</h4>
-                    <div className="space-y-3" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {selectedDests.map((dest) => (
-                        <div key={dest.id} className="flex items-center justify-between text-sm" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                          <div>
-                            <p className="font-semibold">{dest.name}</p>
-                            <p className="text-xs text-muted">
-                              ${dest.budget.dailyCost.min}-${dest.budget.dailyCost.max}/day
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => toggleDestination(dest.id)}
-                            style={{ color: 'red' }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="card" style={{ padding: '24px' }}>
-                    <h4 className="mb-3">Money-Saving Tips</h4>
-                    <ul className="space-y-2 text-sm text-muted tips-list" style={{ padding: 0 }}>
-                      <li style={{ display: 'flex', gap: '8px' }}>
-                        <span className="text-green">•</span>
-                        Book accommodations at least 2 months in advance.
-                      </li>
-                      <li style={{ display: 'flex', gap: '8px' }}>
-                        <span className="text-green">•</span>
-                        Eat at street markets and local mom-and-pop shops.
-                      </li>
-                      <li style={{ display: 'flex', gap: '8px' }}>
-                        <span className="text-green">•</span>
-                        Use subway passes in Korea, share vehicles in Mongolia.
-                      </li>
-                      <li style={{ display: 'flex', gap: '8px' }}>
-                        <span className="text-green">•</span>
-                        Travel during shoulder season (May or September).
-                      </li>
-                    </ul>
-                  </div>
-                </>
-              ) : (
-                <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
-                  <MapPin className="text-muted mx-auto mb-3" style={{ width: '48px', height: '48px' }} />
-                  <p className="text-muted">
-                    Select destinations on the left to see your estimated travel budget
-                  </p>
-                </div>
-              )}
+              <div className="card" style={{ padding: '24px' }}>
+                <h4 className="mb-3">Money-Saving Tips</h4>
+                <ul className="space-y-2 text-sm text-muted tips-list" style={{ padding: 0 }}>
+                  <li style={{ display: 'flex', gap: '8px' }}>
+                    <span className="text-green">•</span>
+                    Book accommodations at least 2 months in advance.
+                  </li>
+                  <li style={{ display: 'flex', gap: '8px' }}>
+                    <span className="text-green">•</span>
+                    Eat at street markets and local mom-and-pop shops.
+                  </li>
+                  <li style={{ display: 'flex', gap: '8px' }}>
+                    <span className="text-green">•</span>
+                    Use subway passes in Korea, share vehicles in Mongolia.
+                  </li>
+                  <li style={{ display: 'flex', gap: '8px' }}>
+                    <span className="text-green">•</span>
+                    Travel during shoulder season (May or September).
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
